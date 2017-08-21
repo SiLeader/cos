@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+#
+# Automatic Creation System
+# Copyright (C) 2017 SiLeader. All rights reserved.
+# License : Mozilla Public License 2.0 (see LICENSE)
+#
+
 import argparse
 import settings
 import compile
@@ -104,7 +110,7 @@ def build_impl(setting):
         command = setting["settings"].run_command()
         if len(command) > 0:
             print("Running program...")
-            subprocess.run(command)
+            subprocess.run(command, shell=True)
 
 
 def build(args):

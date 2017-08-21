@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+#
+# Automatic Creation System
+# Copyright (C) 2017 SiLeader. All rights reserved.
+# License : Mozilla Public License 2.0 (see LICENSE)
+#
+
 import json
 import os.path
 import sys
@@ -103,8 +109,6 @@ class Settings:
         return self._run
 
     def link_command(self, working, file_list):
-        
-    
         files = ""
         for f in file_list:
             files += f
@@ -131,9 +135,9 @@ class Settings:
         return link["linker"]\
                + " -o " + working + "/" + link["output"] + " "\
                + link["options"] + " "\
+               + files\
                + dirs\
-               + libs + " "\
-               + files
+               + libs + " "
 
     def output(self, working):
         return working + "/" + self._rules["link"]["output"]

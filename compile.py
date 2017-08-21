@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+#
+# Automatic Creation System
+# Copyright (C) 2017 SiLeader. All rights reserved.
+# License : Mozilla Public License 2.0 (see LICENSE)
+#
+
 import sys
 import os
 import subprocess
@@ -38,7 +44,7 @@ def compile_(setting, build_type, d, r):
         time = os.stat(setting.output(d)).st_mtime
     target = find_file(setting, build_type, d, r, time)
 
-    with futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as pool:
+    with futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()+1) as pool:
         compiled = {pool.submit(compiler, setting, build_type, d, f): f for f in target}
         for future in futures.as_completed(compiled):
             res = future.result()
