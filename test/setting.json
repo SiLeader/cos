@@ -13,12 +13,18 @@
         "compiler": "clang++",
         "options": "-std=c++14 -g3"
       }
-    ],
-    "link": {
-      "linker": "clang++",
-      "options": "",
-      "output": "a.elf"
-    }
+    ]
   },
+  "target": [
+    {
+      "directory": ".",
+      "priority": 1000,
+      "link": {
+        "linker": "clang++",
+        "options": "",
+        "output": "a.elf"
+      }
+    }
+  ],
   "run": "./a.elf"
 }
