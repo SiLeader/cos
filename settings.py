@@ -16,7 +16,8 @@ class Settings:
     """ setting """
 
     def __init__(self):
-        self._rules = {"debug": {}, "release": {}, "link": {}}
+        self._rules = {"debug": {}, "release": {}}
+        self._target = []
         self._run = ""
 
     @staticmethod
@@ -43,11 +44,12 @@ class Settings:
             else:
                 Settings._setup_rules_impl(self, "release", rules["release"])
 
-            if "link" not in rules:
-                sys.stderr.write("rules for link is not in setting file\n")
-            else:
-                link = rules["link"]
-                self._rules["link"] = link
+        if "target" not in data:
+            sys.stderr.write("target directory is not in setting file.\n")
+        else:
+            self._target = sorted(data["target"], key=lambda tt: int(-tt["priority"]))
+            for t in self._target:
+                t["directory"] = os.path.abspath(t["directory"])
 
         self._run = ""
         if "run" in data:
@@ -84,21 +86,22 @@ class Settings:
         rule = self._rules[ty]
         rule = rule[ext]
 
-        include_dirs = ""
+        include_dirs = []
         for i in rule["includes"]:
-            include_dirs += "-I" + i
-            include_dirs += " "
+            include_dirs.append("-I" + i)
 
-        output = Settings.temporary_object_file(file, working_dir)
-        cmdline = rule["compiler"] + " " + rule["options"] + " -o " + output + " -c " + file + " " + include_dirs
+        output = Settings.temporary_object_file(file, working_dir, ty)
 
-        return {"cmd": cmdline, "output": output}
+        cmdline = [rule["compiler"], rule["options"], "-o", output, "-c", file]
+        cmdline.extend(include_dirs)
+
+        return {"cmd": " ".join(cmdline), "output": output}
 
     @staticmethod
-    def temporary_object_file(source, working):
+    def temporary_object_file(source, working, build_type):
         file_name = source.translate(str.maketrans("\\/", "!!"))
 
-        return working + "/build_output_dir/" + file_name + ".o"
+        return working + "/build_output_dir/" + build_type + "/" + file_name + ".o"
 
     def exists(self, ty, file_name):
         _, ext = os.path.splitext(file_name)
@@ -109,38 +112,46 @@ class Settings:
         return self._run
 
     def link_command(self, working, file_list):
-        files = ""
+        files = []
         for f in file_list:
-            files += f
-            files += " "
-        link = self._rules["link"]
+            files.append(f)
+
+        t = self._get_link_object(working)
+        if t is None:
+            return None
+        link = t["link"]
+
+        if "manually" in link and link["manually"]:
+            cmd = [link["linker"], link["options"].replace("$@", link["output"]).replace("$<", " ".join(files))]
+            return " ".join(cmd)
 
         library_dir = []
         library = []
         if "library" in link:
             if "directory" in link["library"]:
-                library_dir = link["library"]["directory"]
+                library_dir = "-L" + link["library"]["directory"]
 
             if "link" in link["library"]:
-                library = link["library"]["link"]
+                library = "-l" + link["library"]["link"]
 
-        dirs = ""
-        for d in library_dir:
-            dirs += "-L" + working + "/" + d + " "
+        cmd = [link["linker"], "-o", link["output"], link["options"]]
+        cmd.extend(files)
+        cmd.extend(library_dir)
+        cmd.extend(library)
 
-        libs = ""
-        for l in library:
-            libs += "-l" + l + " "
+        return " ".join(cmd)
 
-        return link["linker"]\
-               + " -o " + working + "/" + link["output"] + " "\
-               + link["options"] + " "\
-               + files\
-               + dirs\
-               + libs + " "
+    def _get_link_object(self, working):
+        for t in self._target:
+            if "directory" in t and t["directory"] == working:
+                return t
+        return None
 
     def output(self, working):
-        return working + "/" + self._rules["link"]["output"]
+        t = self._get_link_object(working)
+        if t is None:
+            return None
+        return t["link"]["output"]
 
     def show(self, build_type):
         print("--- Setting ---")
@@ -170,6 +181,12 @@ class Settings:
                 print("        Library:")
                 for l in link["library"]["link"]:
                     print("            {0}".format(l))
+
+    def working_directory(self, index):
+        return self._target[index]["directory"]
+
+    def working_directory_count(self):
+        return len(self._target)
 
 
 if __name__ == '__main__':

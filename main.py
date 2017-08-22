@@ -30,24 +30,15 @@ def main():
     build_parser.add_argument("-d", "--debug", help="Debug build", action="store_true")
     build_parser.add_argument("--setting", "--setting-file", help="Setting file")
     build_parser.add_argument("-R", "--recursive", help="Find file as recursive", action="store_true")
-    build_parser.add_argument("--working", "--working-dir", help="Working directory")
-    build_parser.add_argument("-w", "--ezwork", "--setting-dir-as-working-dir",
-                              help="Working directory is setting file directory", action="store_true")
     build_parser.set_defaults(func=build)
 
     rebuild_parser.add_argument("-r", "--release", help="Release build", action="store_true")
     rebuild_parser.add_argument("-d", "--debug", help="Debug build", action="store_true")
     rebuild_parser.add_argument("--setting", "--setting-file", help="Setting file")
     rebuild_parser.add_argument("-R", "--recursive", help="Find file as recursive", action="store_true")
-    rebuild_parser.add_argument("--working", "--working-dir", help="Working directory")
-    rebuild_parser.add_argument("-w", "--ezwork", "--setting-dir-as-working-dir",
-                                help="Working directory is setting file directory", action="store_true")
     rebuild_parser.set_defaults(func=rebuild)
 
     clean_parser.add_argument("--setting", "--setting-file", help="Setting file")
-    clean_parser.add_argument("--working", "--working-dir", help="Working directory")
-    clean_parser.add_argument("-w", "--ezwork", "--setting-dir-as-working-dir",
-                              help="Working directory is setting file directory", action="store_true")
     clean_parser.set_defaults(func=clean)
 
     show_parser.add_argument("-r", "--release", help="Release build", action="store_true")
@@ -78,11 +69,6 @@ def common(args, from_clean=False, from_show=False):
         setting_file = args.setting
 
     working_dir = "."
-    if not from_show:
-        if args.working:
-            working_dir = args.working
-        elif args.ezwork:
-            working_dir = os.path.dirname(setting_file)
 
     working_dir = os.path.abspath(working_dir)
 
@@ -106,7 +92,7 @@ def common(args, from_clean=False, from_show=False):
 
 
 def build_impl(setting):
-    if compile.compile_sequence(setting["settings"], setting["build_type"], setting["working"], setting["recursive"]):
+    if compile.compile_sequence(setting["settings"], setting["build_type"], setting["recursive"]):
         command = setting["settings"].run_command()
         if len(command) > 0:
             print("Running program...")
@@ -128,7 +114,7 @@ def clean(args):
     if setting is None:
         return
 
-    compile.clean(setting["settings"], setting["working"])
+    compile.clean(setting["settings"])
 
 
 def rebuild(args):
@@ -137,7 +123,7 @@ def rebuild(args):
     if setting is None:
         return
 
-    compile.clean(setting["settings"], setting["working"])
+    compile.clean(setting["settings"])
     build_impl(setting)
 
 

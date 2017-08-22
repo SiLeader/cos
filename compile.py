@@ -58,6 +58,23 @@ def compile_(setting, build_type, d, r):
     return processed
 
 
+def find_file_impl(setting, ty, d, time, file):
+    file = d + "/" + file
+    if not os.path.isdir(file) and not os.path.islink(file) and setting.exists(ty, file):
+        out = settings.Settings.temporary_object_file(file, d, ty)
+        file_time = os.stat(file).st_mtime
+        if file_time > time and (not os.path.exists(out) or os.stat(out).st_mtime < file_time):
+            return {"status": True, "file": file}
+    return {"status": False}
+
+
+def find_all_files(directory):
+    for root, dirs, files in os.walk(directory):
+        yield root
+        for file in files:
+            yield os.path.join(root, file)
+
+
 def find_file(setting, ty, d, r, time):
     """
     find to compile files
@@ -70,19 +87,17 @@ def find_file(setting, ty, d, r, time):
     """
     found = []
 
-    for file in os.listdir(d):
-        file = d + "/" + file
-        if r and os.path.isdir(file):
-            p = find_file(setting, ty, file, r, time)
-            if p is not None:
-                found.extend(p)
+    if r:
+        target = find_all_files(d)
+    else:
+        target = os.listdir(d)
 
-        elif not os.path.islink(file):
-            if setting.exists(ty, file):
-                out = settings.Settings.temporary_object_file(file, d)
-                file_time = os.stat(file).st_mtime
-                if file_time > time and (not os.path.exists(out) or os.stat(out).st_mtime < file_time):
-                    found.append(file)
+    with futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count() + 1) as pool:
+        find = {pool.submit(find_file_impl, setting, ty, d, time, f): f for f in target}
+        for future in futures.as_completed(find):
+            res = future.result()
+            if res["status"]:
+                found.append(res["file"])
 
     return found
     
@@ -93,19 +108,19 @@ def get_temporary_object_files(setting, ty, d, r):
     for file in os.listdir(d):
         file = d + "/" + file
         if r and os.path.isdir(file):
-            p = get_temporary_object_files(setting)
+            p = get_temporary_object_files(setting, ty, d, r)
             if p is not None:
                 found.extend(p)
 
         elif not os.path.islink(file):
             if setting.exists(ty, file):
-                out = settings.Settings.temporary_object_file(file, d)
+                out = settings.Settings.temporary_object_file(file, d, ty)
                 found.append(out)
 
     return found
 
 
-def compile_sequence(s, t, d, r):
+def compile_sequence_impl(s, t, d, r):
     """
     compile and link
     :param s: setting object
@@ -114,8 +129,10 @@ def compile_sequence(s, t, d, r):
     :param r: run as recursive
     :return: is success
     """
-    if not os.path.exists("build_output_dir"):
-        os.mkdir("build_output_dir")
+
+    output_dir = d + "/build_output_dir/" + t
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
 
     object_file = compile_(s, t, d, r)
 
@@ -149,7 +166,7 @@ def compile_sequence(s, t, d, r):
         return False
 
 
-def clean(setting, directory):
+def clean_impl(setting, directory):
     path = directory + "/build_output_dir"
     if os.path.exists(path):
         shutil.rmtree(path)
@@ -157,6 +174,16 @@ def clean(setting, directory):
     output = setting.output(directory)
     if os.path.exists(output):
         os.remove(output)
+
+
+def clean(setting):
+    for index in range(0, setting.working_directory_count()):
+        clean_impl(setting, setting.working_directory(index))
+
+
+def compile_sequence(setting, build_type, recursive):
+    for index in range(0, setting.working_directory_count()):
+        compile_sequence_impl(setting, build_type, setting.working_directory(index), recursive)
 
 
 if __name__ == '__main__':
